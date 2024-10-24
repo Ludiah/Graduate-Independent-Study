@@ -1,0 +1,1758 @@
+---
+title: "Advanced Statistical Models on Kenyan Women Empowerment Indicators"
+author: "Ludiah Bagakas"
+date: "2024-05-08"
+output: html_document
+---
+
+
+```{r setup, echo = FALSE}
+# Set Working Directory
+setwd("C:/Users/lmnba/OneDrive/Documents/Graduate Independent Study/Data Sets")
+rm(list=ls())
+Kenya = read.csv("Kenya.IS.csv", header = TRUE)
+Kenya.t <- as.data.frame(t(Kenya))
+```
+
+```{r, echo = FALSE}
+# Modify Data Set
+codes = Kenya$Indicator.Code
+Kenya.sub = Kenya[grep('200[0-9]|201[0-9]|2020|2021', colnames(Kenya))] 
+KEN = as.data.frame(t(Kenya.sub)) 
+colnames(KEN) = codes
+```
+
+```{r libraries, echo = FALSE}
+# Libraries
+library(rrr)
+library(dplyr)
+library(ggplot2)
+library(psych)
+library(MASS)
+library(GA)
+library(TSstudio)
+library(plotly)
+library(knitr)
+library(car)
+library(corrplot)
+library(ggpubr)
+library(kableExtra)
+library(mvnormtest)
+library(RVAideMemoire)
+library(lmtest)
+```
+
+# Abstract
+
+It is general knowledge that the overall health and empowerment of women can have various connections with the overall climate and social progression within different communities and regions. In this study, these various connections are examined through a series of advanced statistical models with special emphasis on **Multivariate Regression Analysis**, which is used to measure the relationship between several quantitative response variables, as well as multiple predictors. Other techniques included in this study are **Time Series, Multiple Regression, The Genetic Algorithm for model selection, and the Bayesian MCMH approach.** These methods will be applied to explore the relationships between **9 women empowerment indicators** and **37 measurements of different aspects of Kenyan society.** **Time in years** will also be considered to account for the time series component, resulting in **38 total predictors.** To reduce multi-collinearity within the predictors of the data set 5 different models through a subset of the predictors in categories of economics, politics, health, education, and technology.
+
+# Introduction
+
+Gender equality continues to be a pressing topic within the African Diaspora. This racial/ethnic distinction is made to highlight the intersectionality of race, cultural, and gender relations. Black and African women have simultaneously and historically experienced oppression as a result of both their race/ethnic background, as well as their gender. Some of these gender-related issues come as a result of cultural practices that may be a source of pride for many individuals. Because of these unique, yet large-scale experiences, this paper will focus on a particular group within the diaspora; which is Kenyan women.\ 
+
+A multivariate approach was taken for this analysis to examine numerous measures of women empowerment that can range from health-related issues that women are susceptible to or economic variables that can indicate financial freedom. The objectives of this study range from assessing these relationships between Kenyan women empowerment indicators and each of its covariates, examining the relationships between the 9 response variables, formulating  a model that can capture these truths generate predictions.\
+
+# Data Collection and Background
+
+This section outlines the data collection process and provides a background of the variables considered.\ 
+
+The data set used for this analysis was a subset of Kenya's profile on the **World Bank** website. The original World Bank data set consisted of almost 1500 variables across time from 1960 to 2022. These variables were filtered out according to its relevancy and whether or not at least 80% of the data was available. The variables were also filtered to include measurements from 2000 to 2021, since most data is not consistently available earlier on. The following subset resulted in 22 observations and the following predictors and response variables.\
+
+```{r, echo = FALSE, results = 'hide'}
+# Table of Predictors
+data <- data.frame(
+  Indicator = c(
+    "Foreign direct investment, net outflows (% of GDP)",
+    "Urban population",
+    "Rural population",
+    "Population, total",
+    "GDP (current US$)",
+    "Official exchange rate (LCU per US$, period average)",
+    "Exports of goods and services (current US$)",
+    "Merchandise exports by the reporting economy (current US$)",
+    "Control of Corruption: Estimate",
+    "Political Stability and Absence of Violence/Terrorism: Estimate",
+    "CPIA gender equality rating (1=low to 6=high)",
+    "CPIA policy and institutions for environmental sustainability rating (1=low to 6=high)",
+    "CPIA policies for social inclusion/equity cluster average (1=low to 6=high)",
+    "CPIA quality of public administration rating (1=low to 6=high)",
+    "Life expectancy at birth, total (years)",
+    "Mortality rate, infant (per 1,000 live births)",
+    "Fertility rate, total (births per woman)",
+    "Lifetime risk of maternal death (1 in: rate varies by country)",
+    "Incidence of malaria (per 1,000 population at risk)",
+    "People using safely managed sanitation services, rural (% of rural population)",
+    "Adults (ages 15-49) newly infected with HIV",
+    "People using at least basic drinking water services (% of population)",
+    "Immunization, HepB3 (% of one-year-old children)",
+    "Immunization, measles (% of children ages 12-23 months)",
+    "Immunization, DPT (% of children ages 12-23 months)",
+    "Number of under-five deaths",
+    "Number of neonatal deaths",
+    "Compulsory education, duration (years)",
+    "Adjusted savings: education expenditure (% of GNI)",
+    "School enrollment, primary (% gross)",
+    "School enrollment, preprimary (% gross)",
+    "Expenditure on tertiary education (% of government expenditure on education)",
+    "Expenditure on primary education (% of government expenditure on education)",
+    "Fixed telephone subscriptions",
+    "Computer, communications and other services (% of commercial service imports)",
+    "Transport services (% of service imports, BoP)",
+    "Access to electricity, rural (% of rural population)",
+    "Access to electricity (% of population)"
+  ),
+  Code = c(
+    "BM.KLT.DINV.WD.GD.ZS",
+    "SP.URB.TOTL",
+    "SP.RUR.TOTL",
+    "SP.POP.TOTL",
+    "NY.GDP.MKTP.CD",
+    "PA.NUS.FCRF",
+    "NE.EXP.GNFS.CD",
+    "TX.VAL.MRCH.WL.CD",
+    "CC.EST",
+    "PV.EST",
+    "IQ.CPA.GNDR.XQ",
+    "IQ.CPA.ENVR.XQ",
+    "IQ.CPA.SOCI.XQ",
+    "IQ.CPA.PADM.XQ",
+    "SP.DYN.LE00.IN",
+    "SP.DYN.IMRT.IN",
+    "SP.DYN.TFRT.IN",
+    "SH.MMR.RISK",
+    "SH.MLR.INCD.P3",
+    "SH.STA.SMSS.RU.ZS",
+    "SH.HIV.INCD",
+    "SH.H2O.BASW.ZS",
+    "SH.IMM.HEPB",
+    "SH.IMM.MEAS",
+    "SH.IMM.IDPT",
+    "SH.DTH.MORT",
+    "SH.DTH.NMRT",
+    "SE.COM.DURS",
+    "NY.ADJ.AEDU.GN.ZS",
+    "SE.PRM.ENRR",
+    "SE.PRE.ENRR",
+    "SE.XPD.TERT.ZS",
+    "SE.XPD.PRIM.ZS",
+    "IT.MLT.MAIN",
+    "TM.VAL.OTHR.ZS.WT",
+    "BM.GSR.TRAN.ZS",
+    "EG.ELC.ACCS.RU.ZS",
+    "EG.ELC.ACCS.ZS"
+  )
+)
+
+# Print table in LaTeX format
+kable(data, format = "latex", booktabs = TRUE, col.names = c("Indicator", "Code"), caption = "Table of Independent Variables")
+```
+
+```{r, echo = FALSE, results = 'hide'}
+# Table of Response
+response <- data.frame(
+  Indicator = c(
+    "Fertility rate, total (births per woman)",
+    "Mortality rate, adult, female (per 1,000 female adults)",
+    "Prevalence of HIV, female (% ages 15-24)",
+    "Population, female (% of total population)",
+    "Life expectancy at birth, female (years)",
+    "Employment in agriculture, female (% of female employment) (modeled ILO estimate)",
+    "Employment in industry, female (% of female employment) (modeled ILO estimate)",
+    "Contributing family workers, female (% of female employment) (modeled ILO estimate)",
+    "Suicide mortality rate, female (per 100,000 female population)"
+  ),
+  Code = c(
+    "SP.DYN.TFRT.IN",
+    "SP.DYN.AMRT.FE",
+    "SH.HIV.1524.FE.ZS",
+    "SP.POP.TOTL.FE.ZS",
+    "SP.DYN.LE00.FE.IN",
+    "SL.AGR.EMPL.FE.ZS",
+    "SL.IND.EMPL.FE.ZS",
+    "SL.FAM.WORK.FE.ZS",
+    "SH.STA.SUIC.FE.P5"
+  )
+)
+
+# Print table in LaTeX format
+kable(response, format = "latex", booktabs = TRUE, col.names = c("Indicator", "Code"), caption = "Table of Response Variables")
+```
+
+```{r, echo = FALSE}
+# Create Response Matrix
+women <- cbind(KEN[, 'SP.DYN.TFRT.IN'], 
+               KEN[, 'SP.DYN.AMRT.FE'], 
+               KEN[, 'SH.HIV.1524.FE.ZS'], 
+               KEN[, 'SP.POP.TOTL.FE.ZS'], 
+               KEN[, 'SP.DYN.LE00.FE.IN'],
+               KEN[, 'SL.AGR.EMPL.FE.ZS'],
+               KEN[, 'SL.IND.EMPL.FE.ZS'],
+               KEN[, 'SL.FAM.WORK.FE.ZS'],
+               KEN[, 'SH.STA.SUIC.FE.P5'])
+
+colnames(women) <- c('SP.DYN.TFRT.IN', 'SP.DYN.AMRT.FE', 
+                     'SH.HIV.1524.FE.ZS', 'SP.POP.TOTL.FE.ZS', 
+                     'SP.DYN.LE00.FE.IN', 'SL.AGR.EMPL.FE.ZS', 
+                     'SL.IND.EMPL.FE.ZS', 'SL.FAM.WORK.FE.ZS', 
+                     'SH.STA.SUIC.FE.P5')
+```
+
+Tables 1 and 2 provide each variable and the code they were assigned. In this analysis it is important to consider varying aspects of women empowerment to account for its many different forms.\
+
+## Examination of Time Series
+
+The first variable, fertility rate (average number of births per women) is essential in discussing the reproductive health and climate for women. The time series plot for fertility rate in Figure 1 shows a decline in the fertility rates across time which is pretty consistent with the rest of the world. According to the World Bank, the most current reported fertility rate in Kenya is 3.34 (2021), while in all of Sub-Saharan Africa, this rate is 4.6. It is generally stated that there is a positive association between rates of poverty and reproduction rates. Individuals that reside in countries that are considered more developed tend to have access to modern contraceptives, hence their lower fertility rates. Kenya's poverty rate is around 36% which is pretty mid-range in comparison to other Saharan African countries. Countries with higher poverty rates, like Somalia with a birth rate of 6.31, would be considered outliers that skew the distribution of fertility rates in Sub-Saharan Africa to the right.  
+
+```{r, echo = FALSE}
+# Create Times Series 
+KEN.new <- ts(data = KEN, start = 2000, end = 2021)
+women.ts <- ts(data = women, start = 2000, end = 2021)
+
+women_df_fert <- data.frame(year = time(women.ts), women_fertility = women.ts[,1])
+women_df_mort <- data.frame(year = time(women.ts), women_mortality = women.ts[,2])
+women_df_hiv <- data.frame(year = time(women.ts), women_hiv = women.ts[,3])
+women_df_pop <- data.frame(year = time(women.ts), women_population = women.ts[,4])
+women_df_life <- data.frame(year = time(women.ts), women_life = women.ts[,5])
+women_df_agr <- data.frame(year = time(women.ts), women_agriculture_employment = women.ts[,6])
+women_df_ind <- data.frame(year = time(women.ts), women_industry_employment = women.ts[,7])
+women_df_fam <- data.frame(year = time(women.ts), women_family_workers = women.ts[,8])
+women_df_suic <- data.frame(year = time(women.ts), women_suicide_rate = women.ts[,9])
+```
+
+```{r, echo = FALSE, message = FALSE}
+#Time Series Plots
+# Fertility
+ggplot(women_df_fert, aes(x = year, y = women_fertility)) +
+  geom_line(color = "blue") +
+  geom_point(color = "blue", size = 2) +
+  theme_minimal() +
+  labs(title = "Time Series for Fertility Rate",
+       x = "Year",
+       y = "Fertility rate, total (births per woman)",
+       color = NULL) 
+```
+
+
+Variables like mortality rate and life expectancy have implications in healthcare, violence, and financial privilege. As one would expect, the general trend for Mortality decreases and the general trend for Life Expectancy increases. The patterns are expected across time due to medical and technological advances that help prolong life expectancy and decrease death rates. There appears to be some slight seasonality occurring in the time series plot for mortality rates. Local maximums of mortality occur during 2010, 2013, 2016, and a spike at 2021. These times in which these values increase are at or near elections. The increase of mortality rates could potentially be explained by post-election violence or other conflicts. For example, there was a mass shooting in one of the largest most populated malls in Kenya, known as the Westgate Mall in 2013. This was also the same year Uhuru Kenyatta was elected president and per usual,  Additionally, the increase in mortality around 2019 to 2021 could be a result of COVID-19 deaths, where life expectancy also drops.\
+
+These variables aim to simultaneously address hidden components of mortality and life expectancy in women, like rates of femicide and domestic violence (where data is limited).\
+
+```{r, echo = FALSE, message = FALSE}
+# Mortality
+plot_mort <- ggplot(women_df_mort, aes(x = year, y = women_mortality)) +
+  geom_line(color = "red") +
+  geom_point(color = "red", size = 2) +
+  theme_minimal() +
+  labs(title = "Time Series for Mortality Rate",
+       x = "Year",
+       y = "Mortality rate, adult, female (per 1,000 female adults)",
+       color = NULL)
+
+# Life Expectancy
+plot_life <- ggplot(women_df_life, aes(x = year, y = women_life)) +
+  geom_line(color = "orange") +
+  geom_point(color = "orange", size = 2) +
+  theme_minimal() +
+  labs(title = "Time Series for Life Expectancy",
+       x = "Year",
+       y = "Life expectancy at birth, female (years)",
+       color = NULL)
+
+ggarrange(plot_mort, plot_life)
+```
+
+The more optimistic side of this analysis relates to woman and career development. Two of these response variables are the percentage of female employment in agriculture and the percentage of female employment in industry. These variables include ILO imputations to as a way of handling missing data points. As expected, the time series plots show that as agriculture employment for women decreases, industry employment increases. One can infer that there is a lot less demand for agricultural workers with the increase of industrialization and technological advancements.\ 
+
+```{r, echo = FALSE, message = FALSE}
+# Agriculture Employment
+plot_agr <- ggplot(women_df_agr, aes(x = year, y = women_agriculture_employment)) +
+  geom_line(color = "brown") +
+  geom_point(color = "brown", size = 2) +
+  theme_minimal() +
+  labs(title = "Time Series for Agriculture Employment",
+       x = "Year",
+       y = "Employment in agriculture, female (% of female employment)",
+       color = NULL)
+
+# Industry Employment
+plot_ind <- ggplot(women_df_ind, aes(x = year, y = women_industry_employment)) +
+  geom_line(color = "deeppink") +
+  geom_point(color = "deeppink", size = 2) +
+  theme_minimal() +
+  labs(title = "Time Series for Industry Employment",
+       x = "Year",
+       y = "Employment in industry, female (% of female employment)",
+       color = NULL)
+
+ggarrange(plot_agr, plot_ind)
+```
+
+The variable for prevalence of HIV in women aged (18-25) is a percentage calculated from those who are newly diagnosed. This variable can be relevant to the overall argument surrounding health. HIV rates are also indications of sexual education and empowerment, as well as access to contraception. Given that The time series plot for HIV Prevalence decreases almost consistently across time, it can be inferred that these indications of sexual education and empowerment have grown with time.\
+
+
+```{r, echo = FALSE, message = FALSE}
+# HIV Prevalence
+ggplot(women_df_hiv, aes(x = year, y = women_hiv)) +
+  geom_line(color = "forestgreen") +
+  geom_point(color = "forestgreen", size = 2) +
+  theme_minimal() +
+  labs(title = "Time Series for HIV Prevalence",
+       x = "Year",
+       y = "Prevalence of HIV, female (% ages 15-24)",
+       color = NULL)
+```
+
+One variable that relates to both women empowerment in career and at home is the percentage of women financially contributing to their households, which also contains ILO imputations. The graph for this variable is a bit hard to interpret as there seems to be two separate functions. This may be a result of the imputations and could potentially indicate that this variable needs a transformation in our final statistical model.\  
+
+```{r, echo = FALSE, message = FALSE}
+ggplot(women_df_fam, aes(x = year, y = women_family_workers)) +
+  geom_line(color = "deeppink") +
+  geom_point(color = "deeppink", size = 2) +
+  theme_minimal() +
+  labs(title = "Time Series for Family Workers",
+       x = "Year",
+       y = "Contributing family workers, female (% of female employment)",
+       color = NULL)
+```
+
+Suicide mortality rate in women is measured in individual per 100,000 women. This is a valuable predictor as it relates to mental health, which is a topic of concern across all demographics. The time series plot for suicide rates illustrates a sporadic unpredictable pattern across time after the year 2004. It is difficult to gauge where this pattern comes from, but one could infer that suicide rates, like mortality, arise during historical conflicts.\
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+# Suicide Rate
+ggplot(women_df_suic, aes(x = year, y = women_suicide_rate)) +
+  geom_line(color = "black") +
+  geom_point(color = "black", size = 2) +
+  theme_minimal() +
+  labs(title = "Time Series for Suicide Rate",
+       x = "Year",
+       y = "Suicide mortality rate, female (per 100,000 female population)",
+       color = NULL)
+```
+
+Population is a general measurement to be considered, as it relates to just about anything involving health, social climate, mortality, etc. This specific variable measures the national percentage of women. When these numbers drop or rise, it can hint at some event where women or men are being disproportionately affected or even an increase or decrease in migration. The time series for population follows a quadratic pattern where the minimum value occurs at the year 2010. This is hard to interpret, since these are percentages. Upon further research, Human Right Watch reports that some of the events that occurred leading up to 2010 was post-election violence following the election of Mwai Kibaki and the immigration of Somali refugees. It is possible that during this time, women were emigrating or disproportionately killed after the election. Another theory is that most Somali refugees that migrated to Kenya were men and therefore decreased the percentage of women in Kenya.\
+
+```{r, echo = FALSE, message = FALSE}
+# Population
+ggplot(women_df_pop, aes(x = year, y = women_population)) +
+  geom_line(color = "purple") +
+  geom_point(color = "purple", size = 2) +
+  theme_minimal() +
+  labs(title = "Time Series for Female Population",
+       x = "Year",
+       y = "Population, female (% of total population)",
+       color = NULL)
+```
+
+As noted in the evaluation of time series, many data points corresponding to the national climate in Kenyan are missing and this can lead to heavily biased and volatile model results if not handled correctly. The next section will expand on these challenges and discuss resolutions.  
+
+# Missing Value Imputation
+
+## Remark
+
+One of the most troublesome obstacles when conducting this analysis was navigating the many missing values in Kenya's data sets. The data set was obtained from the World Bank website which includes thousands of different variables that describe different conditions in Kenya across time, but a vast majority of these variables had very few data points. The issue of missing data is especially common when the population of interest is marginalized or considered 'underdeveloped' by Western standards. This is the case with most African Countries, especially when considering a population of African women. To avoid problematic and biased results, any variable that contained less than 80% of data from 2000-2022, was excluded from this analysis. Unfortunately, many variables that could have been significant (like literacy rates, number of physicians, and most education-related variables) in the interpretations of this study were eliminated. 
+
+## Handling of Missing Values
+
+The missing values were imputed using the regression equation $\hat{y}_{} = \beta_{0} + \beta_{}t$ for each of missing variables in the data, considering time $t$ in years. Using time as the only independent variable in the regression imputation processes seemed almost ideal, since time is the only variable that is consistently non-missing, however it neglects the other relationships in the data set, which can in turn lead to other biases.\
+
+```{r, echo = FALSE}
+# Missing Value Imputation
+years = rownames(KEN)
+x = row_number(years)
+
+for (feature in codes) {
+  feature_model = lm(KEN[, feature] ~ x, na.action=na.omit)
+  tryCatch(
+    { p = predict(feature_model, KEN[feature], interval="prediction")[, "fit"] },
+    warning = function(e) {print(paste(feature, e))
+    }
+  )
+  na_years = which(is.na(KEN[feature]))
+  if (length(na_years) > 0) {
+    print(paste(feature,"has",length(na_years),"NAs"))
+  }
+  # If you want new columns named imputed_<feature>, then comment the next code
+  # line and uncomment the following three.
+  KEN[na_years, feature] = p[na_years]
+  #new_colname = paste0("imputed_", feature)
+  #KEN[new_colname] = KEN[feature]
+  #KEN[na_years, new_colname] = p[na_years]
+}
+```
+
+
+```{r, echo = FALSE}
+# Response Variable New Matrix
+women <- cbind(KEN[, 'SP.DYN.TFRT.IN'], 
+               KEN[, 'SP.DYN.AMRT.FE'], 
+               KEN[, 'SH.HIV.1524.FE.ZS'], 
+               KEN[, 'SP.POP.TOTL.FE.ZS'], 
+               KEN[, 'SP.DYN.LE00.FE.IN'],
+               KEN[, 'SL.AGR.EMPL.FE.ZS'],
+               KEN[, 'SL.IND.EMPL.FE.ZS'],
+               KEN[, 'SL.FAM.WORK.FE.ZS'],
+               KEN[, 'SH.STA.SUIC.FE.P5'])
+
+colnames(women) <- c('SP.DYN.TFRT.IN', 'SP.DYN.AMRT.FE', 
+                     'SH.HIV.1524.FE.ZS', 'SP.POP.TOTL.FE.ZS', 
+                     'SP.DYN.LE00.FE.IN', 'SL.AGR.EMPL.FE.ZS', 
+                     'SL.IND.EMPL.FE.ZS', 'SL.FAM.WORK.FE.ZS', 
+                     'SH.STA.SUIC.FE.P5')
+```
+
+```{r, echo = FALSE}
+# Create New Times Series 
+KEN.new <- ts(data = KEN, start = 2000, end = 2021)
+women.ts <- ts(data = women, start = 2000, end = 2021)
+
+women_df_fert <- data.frame(year = time(women.ts), women_fertility = women.ts[,1])
+women_df_mort <- data.frame(year = time(women.ts), women_mortality = women.ts[,2])
+women_df_hiv <- data.frame(year = time(women.ts), women_hiv = women.ts[,3])
+women_df_pop <- data.frame(year = time(women.ts), women_population = women.ts[,4])
+women_df_life <- data.frame(year = time(women.ts), women_life = women.ts[,5])
+women_df_agr <- data.frame(year = time(women.ts), women_agriculture_employment = women.ts[,6])
+women_df_ind <- data.frame(year = time(women.ts), women_industry_employment = women.ts[,7])
+women_df_fam <- data.frame(year = time(women.ts), women_family_workers = women.ts[,8])
+women_df_suic <- data.frame(year = time(women.ts), women_suicide_rate = women.ts[,9])
+```
+
+
+The suicide rates for women were imputed for the year 2000 and 2021. The imputed values seem to correspond to the trend of the where values increase, decrease and then plateau a little bit.\
+
+```{r, echo = FALSE, message = FALSE}
+ggplot(women_df_suic, aes(x = year, y = women_suicide_rate)) +
+  geom_line() +
+  geom_point() +
+  geom_point(
+    data = filter(women_df_suic, year == 2020 | year == 2021),  # Filter out 2020 and 2021
+    aes(color = "Imputed Values"),  # Set color to indicate the filtered years
+    size = 3
+  ) +
+  geom_text(
+    data = filter(women_df_suic, year == 2020 | year == 2021),  # Filter out 2020 and 2021
+    aes(label = ""),  # Add label for the filtered years
+    hjust = -0.2,  # Adjust horizontal justification
+    vjust = 0.5,   # Adjust vertical justification
+    color = "orange"  # Set color to orange
+  ) +
+  labs(title = "Time Series for Suicide Rate",
+       x = "Year",
+       y = "Suicide mortality rate, female (per 100,000 female population)",
+       color = NULL) +  # Remove legend title for color
+  theme_minimal()
+```
+
+# Exploratory Data Analysis
+
+This section consists further exploration and visual demonstrations of the data set. 
+
+```{r, echo = FALSE}
+responses <- KEN[, c(
+  "SP.DYN.TFRT.IN",
+  "SP.DYN.AMRT.FE",
+  "SH.HIV.1524.FE.ZS",
+  "SP.POP.TOTL.FE.ZS",
+  "SP.DYN.LE00.FE.IN",
+  "SH.STA.SUIC.FE.P5"
+)]
+
+predictors <- KEN[, c(
+  "BM.KLT.DINV.WD.GD.ZS", "SP.URB.TOTL", "SP.RUR.TOTL", "SH.HIV.INCD", "SH.IMM.HEPB", 
+  "SH.DTH.MORT", "SE.PRM.ENRR", "SE.PRE.ENRR", "SE.XPD.TERT.ZS", "EG.ELC.ACCS.RU.ZS",
+  "PV.EST", "IQ.CPA.GNDR.XQ", "IQ.CPA.ENVR.XQ", "IQ.CPA.SOCI.XQ", "IQ.CPA.PADM.XQ",
+  "SH.MMR.RISK", "SH.MLR.INCD.P3", "SH.STA.SMSS.RU.ZS", "SH.H2O.BASW.ZS", "SH.IMM.MEAS",
+  "SH.IMM.IDPT", "SH.DTH.NMRT", "SE.COM.DURS", "NY.ADJ.AEDU.GN.ZS", "SE.PRM.ENRR",
+  "SE.PRE.ENRR", "SE.XPD.TERT.ZS", "SE.XPD.PRIM.ZS", "IT.MLT.MAIN", "TM.VAL.OTHR.ZS.WT",
+  "BM.GSR.TRAN.ZS", "EG.ELC.ACCS.ZS"
+)]
+
+cor.pred <- cor(predictors)
+
+cor.resp <- cor(responses)
+
+corrplot(cor.pred)
+corrplot(cor.resp)
+```
+
+# EDA Plots
+The EDA plots for each of the response variables are in **Figures.** Here are the comments:\
+
++ **EDA Plot of Fertility Rates:** The fertility rates follow a slightly bi-modal distributions as indicated by the two peaks in the histogram. The normal Q-Q plot contains scattered data points on both the right and left corners hinting to a slight lack of normality. The density and box-plots appear normal with no outliers.\ 
+
++ **EDA Plot of Mortality Rates:** The mortality rates follow a skewed-right distribution as indicated by the histogram, box, and density plots. The data points in the normal Q-Q plot follow a slight cubic pattern hinting to a lack of normality. No outliers are visible.\
+
++ **EDA Plot of HIV Prevalence:** The HIV rates follow a skewed-right distribution as indicated by the histogram, normal Q-Q, and density plots. The data points in the normal Q-Q plot are scattered towards the right corner (skewed-right). Two outliers are visible in the box-plot, which may be considered influential.\
+
++ **EDA Plot of Female Population:** The Female Population percentages follow a slightly bi-modal distributions as indicated by the two peaks in the histogram. The normal Q-Q plot contains scattered data points, but appears approximately normal. The density and box-plot appear almost normal with no outliers visible.\ 
+
++ **EDA Plot of Life Expectancy:** The life expectancy ages follow a skewed-right distribution as indicated by the histogram, box, and density plots. The data points in the normal Q-Q plot follow a slight cubic pattern hinting to a lack of normality. No outliers are visible.\
+
++ **EDA Plot of Employment in Agriculture:** The female agriculture employment rates follow a slightly skewed right but mostly normal distribution as indicated by the histogram. The density, box, and normal Q-Q plots appear normal. 
+
++ **EDA Plot of Employment in Industry:** The female industry employment rates follow a skewed-right distribution as indicated by the histogram, box, and density plots. The data points in the normal Q-Q plot follow a slight cubic pattern hinting to a lack of normality. No outliers are visible.\
+
++ **EDA Plot of Female Financial Contribution to Household** The rates of female financial contribution to households follow a skewed-right distribution as indicated by all four plots. There are four prominent outliers that may affect the results of the analysis.\
+
++ **EDA Plot of Suicide Rates:** The female suicide rates follow a skewed-right distribution as indicated by the histogram, density, and normal Q-Q plots. One outlier is visible in the box-plot.\
+
+```{r, echo = FALSE}
+# Define response variable names and their corresponding column indices
+response_var_names <- c("Fertility Rate",
+                        "Mortality Rate",
+                        "HIV Prevalence",
+                        "Female Population",
+                        "Life Expectancy",
+                        "Employment in Agriculture",
+                        "Employment in Industry",
+                        "Contributing Family Workers",
+                        "Suicide Mortality Rate")
+response_var_indices <- c(1, 2, 3, 4, 5, 6, 7, 8, 9)  # Assuming the response variables are in columns 1 to 9
+
+# Define explanatory variables (assuming they start from column 10)
+explanatory_vars <- colnames(women)[10:ncol(women)]
+
+# Loop through each response variable
+for (i in seq_along(response_var_names)) {
+  response_var <- women[, response_var_indices[i]]
+  response_name <- response_var_names[i]
+  
+  # Create a new plot for each response variable
+  par(mfrow = c(2, 2))  # Adjust layout for 2x2 grid
+  
+  # QQ Plot
+  qqnorm(response_var, main = paste("QQ Plot of", response_name))
+  qqline(response_var)
+  
+  # Histogram
+  hist(response_var, main = paste("Histogram of", response_name), col = "deeppink")
+  
+  # Density Plot
+  iqd <- summary(response_var)[5] - summary(response_var)[2]
+  plot(density(response_var, width = 2 * iqd), xlab = "x", ylab = "", 
+       main = paste("Density Plot of", response_name), type = "l")
+  
+  # Boxplot
+  boxplot(response_var, col = 'cyan', main = paste("Boxplot of", response_name))
+}
+```
+
+These evaluations of the response variables may affect the distribution of our residuals in the final step. Most of the univariate outliers may not be harmful in the multivariate context.\ 
+
+# Assumptions
+
+In order to prepare for multivariate analysis, a linear multiple regression is fit for each of the 9 women empowerment indicators for all five categories (45 total models). **The raw summaries of these models are shown in the appendix section of the report.** 
+This section examines the multivariate and univariate correspondence to the assumptions of regression analysis. These assumptions will be re-examined with further inspection after the genetic algorithm is applied.\ 
+
+Consider the multivariate model matrix:\
+
+The assumptions required for multiple regression can be generalized to the multivariate case.\ 
+
+**Collinearity:** Multi-collinearity is volatile in Regression analysis. When severe collinearity is present in the predictors of the data set, the linear combinations of the predictors result in singular matrices. These singularities inflate the diagonal entries causing the calculations to be numerically unstable. The correlations plots in **Figures** illustrate the correlation between each of the predictors. Larger, more pigmented circles indicate higher correlation coefficients. Most of the predictors are correlated, especially in the category of health.A  typical strategy of avoiding these occurrences is by removing highly-correlated predictors, however this method may result in loss of information. The full model matrix produced several missing values indicating severe multi-collinearity. **The Genetic Algorithm**, may help resolve this issue, since predictors that are harmful to the model will be eliminated one by one and can reduce the complexity of the model. However, the 'GA' function in R does not take missing values, so collinearity should be reduced *prior* to applying The Genetic Algorithm.\
+
+```{r, echo = FALSE}
+# Create Categories of Predictors
+time <- row_number(years)
+econ <- KEN[,1:8]
+pol <- KEN[,9:14]
+health <- KEN[,15:26]
+edu <- KEN[,27:32]
+tech <- KEN[,33:37]
+```
+
+```{r, echo = FALSE}
+cor.econ <- cor(econ)
+corrplot(cor.econ)
+
+cor.pol <- cor(pol)
+corrplot(cor.pol)
+
+cor.health <- cor(health)
+corrplot(cor.health)
+
+cor.edu <- cor(edu)
+corrplot(cor.edu)
+
+cor.tech <- cor(tech)
+corrplot(cor.tech)
+```
+
+To overcome collinearity without removing too many predictors, the predictors were subset into 5 different categories consisting of economic, political, health, education, and technological-related variables. The remainder of the analysis is applied to **5 separate models ** using the subsets of the predictors and **the original 9 response variables.**
+
+Here are the 5 categories of predictors:\
+
+```{r, echo = FALSE}
+# Creating lists of indicators with their codes and names
+econ <- data.frame(
+  Code = c("BM.KLT.DINV.WD.GD.ZS", "SP.URB.TOTL", "SP.RUR.TOTL", "SP.POP.TOTL",
+           "NY.GDP.MKTP.CD", "PA.NUS.FCRF", "NE.EXP.GNFS.CD", "TX.VAL.MRCH.WL.CD"),
+  Name = c("Foreign direct investment, net outflows (% of GDP)", "Urban population", "Rural population",
+           "Population, total", "GDP (current US$)", "Official exchange rate (LCU per US$, period average)",
+           "Exports of goods and services (current US$)", "Merchandise exports by the reporting economy (current US$)")
+)
+
+pol <- data.frame(
+  Code = c("CC.EST", "PV.EST", "IQ.CPA.GNDR.XQ", "IQ.CPA.ENVR.XQ",
+           "IQ.CPA.SOCI.XQ", "IQ.CPA.PADM.XQ"),
+  Name = c("Control of Corruption: Estimate", "Political Stability and Absence of Violence/Terrorism: Estimate",
+           "CPIA gender equality rating (1=low to 6=high)", "CPIA policy and institutions for environmental sustainability rating (1=low to 6=high)",
+           "CPIA policies for social inclusion/equity cluster average (1=low to 6=high)", "CPIA quality of public administration rating (1=low to 6=high)")
+)
+
+health <- data.frame(
+  Code = c("SP.DYN.LE00.IN", "SP.DYN.IMRT.IN", "SH.MMR.RISK", "SH.MLR.INCD.P3",
+           "SH.STA.SMSS.RU.ZS", "SH.HIV.INCD", "SH.H2O.BASW.ZS", "SH.IMM.HEPB",
+           "SH.IMM.MEAS", "SH.IMM.IDPT", "SH.DTH.MORT", "SH.DTH.NMRT"),
+  Name = c("Life expectancy at birth, total (years)", "Mortality rate, infant (per 1,000 live births)",
+           "Lifetime risk of maternal death (1 in: rate varies by country)", "Incidence of malaria (per 1,000 population at risk)",
+           "People using safely managed sanitation services, rural (% of rural population)", "Adults (ages 15-49) newly infected with HIV",
+           "People using at least basic drinking water services (% of population)", "Immunization, HepB3 (% of one-year-old children)",
+           "Immunization, measles (% of children ages 12-23 months)", "Immunization, DPT (% of children ages 12-23 months)",
+           "Number of under-five deaths", "Number of neonatal deaths")
+)
+
+edu <- data.frame(
+  Code = c("SE.COM.DURS", "NY.ADJ.AEDU.GN.ZS", "SE.PRM.ENRR", "SE.PRE.ENRR",
+           "SE.XPD.TERT.ZS", "SE.XPD.PRIM.ZS"),
+  Name = c("Compulsory education, duration (years)", "Adjusted savings: education expenditure (% of GNI)",
+           "School enrollment, primary (% gross)", "School enrollment, preprimary (% gross)",
+           "Expenditure on tertiary education (% of government expenditure on education)",
+           "Expenditure on primary education (% of government expenditure on education)")
+)
+
+tech <- data.frame(
+  Code = c("IT.MLT.MAIN", "TM.VAL.OTHR.ZS.WT", "BM.GSR.TRAN.ZS", "EG.ELC.ACCS.RU.ZS", 
+           "EG.ELC.ACCS.ZS"),
+  Name = c("Fixed telephone subscriptions", "Computer, communications and other services (% of commercial service imports)",
+           "Transport services (% of service imports, BoP)", "Access to electricity, rural (% of rural population)", 
+           "Access to electricity (% of population)")
+)
+
+# Creating a summary data frame with all categories
+categories <- data.frame(
+  Category = c(rep("Economic", nrow(econ)), rep("Political", nrow(pol)), 
+               rep("Health", nrow(health)), rep("Education", nrow(edu)), 
+               rep("Technology", nrow(tech))),
+  Code = c(econ$Code, pol$Code, health$Code, edu$Code, tech$Code),
+  Name = c(econ$Name, pol$Name, health$Name, edu$Name, tech$Name)
+)
+
+# Display the summary table using kable
+kable(categories, col.names = c("Category", "Indicator Code", "Indicator Name"), 
+      caption = "Summary of Predictors by Category", format = 'latex')
+```
+
+The following independent variables were removed from each model to reduce the correlation between predictors.\
+
+```{r, echo = FALSE}
+predictors.removed <- data.frame(
+  Code = c("SP.URB.TOTL", "SP.POP.TOTL", "SP.RUR.TOTL","NY.GDP.MKTP.CD", "TX.VAL.MRCH.WL.CD", "NE.EXP.GNFS.CD", "IQ.CPA.GNDR.XQ", "SH.HIV.INCD", "SP.DYN.LE00.IN", "SP.DYN.IMRT.IN", "SH.MMR.RISK", "SH.H2O.BASW.ZS", "SH.DTH.MORT", "SH.IMM.IDPT", "SE.PRE.ENRR", "EG.ELC.ACCS.RU.ZS"),
+  Name = c("Urban population", "Population, total", "Rural population", "GDP (current US$)",
+           "Merchandise exports by the reporting economy (current US$)", "Exports of goods and services (current US$)", "CPIA gender equality rating (1=low to 6=high)", "Adults (ages 15-49) newly infected with HIV", "Life expectancy at birth, total (years)", "Mortality rate, infant (per 1,000 live births)", "Lifetime risk of maternal death (1 in: rate varies by country)","People using at least basic drinking water services (% of population)","Number of under-five deaths","Immunization, DPT (% of children ages 12-23 months)", "School enrollment, preprimary (% gross)", "Access to electricity, rural (% of rural population)")
+)
+
+# Display the summary table using kable
+kable(predictors.removed, col.names = c("Indicator Code", "Indicator Name"), 
+      caption = "Omitted Predictors", format = 'latex')
+```
+
+```{r, echo = FALSE}
+# Create Categories of Predictors
+time <- row_number(years)
+econ <- KEN[,1:8]
+pol <- KEN[,9:14]
+health <- KEN[,15:26]
+edu <- KEN[,27:32]
+tech <- KEN[,33:37]
+```
+
+**Note:** Each model includes **time** in years as an additional predictor.\ 
+
+```{r, echo = FALSE, results = 'hide', warning = FALSE, message = FALSE}
+econ.m <- lm(women ~ . - SP.POP.TOTL - SP.URB.TOTL- SP.RUR.TOTL - NY.GDP.MKTP.CD - TX.VAL.MRCH.WL.CD - time - NE.EXP.GNFS.CD, data = cbind(time, econ))
+
+pol.m <- lm(women ~ . - IQ.CPA.GNDR.XQ, data = cbind(time, pol))
+
+health.m <- lm(women ~ . - SH.HIV.INCD - SP.DYN.LE00.IN - SP.DYN.IMRT.IN - SH.MMR.RISK - SH.H2O.BASW.ZS - SH.DTH.MORT - SH.IMM.IDPT, data = cbind(time, health))
+
+edu.m <- lm(women ~ . - SE.PRE.ENRR, data = cbind(time, edu))
+
+tech.m <- lm(women ~ . - EG.ELC.ACCS.RU.ZS, data = cbind(time, tech))
+```
+
+## Residuals
+
+Next, the assumptions for the residuals will be examined.\
+
+Here are the properties:\ 
++ Error terms must be uncorrelated with constant variance ($cov(\epsilon_i, \epsilon_k) = \sigma_{ik} I$)
++ Error terms must be normally distributed ($\mathbf{\epsilon} \sim {\sf N}(0, 1)$)
+
+1. **Residuals are Uncorrelated:**
+
+Based on the Residuals versus Observation Order plot in **Figure**, none of the models appear to have highly correlated residuals, since the data points do not appear to follow an obvious trend. Although the plot seems to indicate inconsistent variances in the residuals, since most of the observations have residuals that are close to zero, while the rest are more scattered. 
+
+```{r, echo = FALSE}
+# Residuals v Order
+par(mfrow = c(2,3))
+plot(order(resid(econ.m)), resid(econ.m), xlab = "Observation Order", ylab = "Residuals", main = "Economic R v O")
+
+plot(order(resid(pol.m)), resid(pol.m), xlab = "Observation Order", ylab = "Residuals", main = "Political R v O")
+
+plot(order(resid(health.m)), resid(health.m), xlab = "Observation Order", ylab = "Residuals", main = "Health R v O")
+
+plot(order(resid(edu.m)), resid(edu.m), xlab = "Observation Order", ylab = "Residuals", main = "Education R v O")
+
+plot(order(resid(tech.m)), resid(tech.m), xlab = "Observation Order", ylab = "Residuals", main = "Technology R v O")
+```
+
+2. **Residuals Maintain Constant Variance:**
+
+The plots of the Residuals versus Fitted Values in **Figure** demonstrate unequal variance in the residuals of the 5 models. The variance of the residuals drastically increase with larger fitted values. 
+
+```{r, echo = FALSE}
+par(mfrow = c(2,3))
+plot(fitted(econ.m), resid(econ.m), xlab = "Fitted Values", ylab = "Residuals", main = "Economic R v F")
+
+plot(fitted(pol.m), resid(pol.m), xlab = "Fitted Values", ylab = "Residuals", main = "Political R v F")
+
+plot(fitted(health.m), resid(health.m), xlab = "Fitted Values", ylab = "Residuals", main = "Health R v F")
+
+plot(fitted(edu.m), resid(edu.m), xlab = "Fitted Values", ylab = "Residuals", main = "Education R v F")
+
+plot(fitted(tech.m), resid(tech.m), xlab = "Fitted Values", ylab = "Residuals", main = "Technology R v F")
+```
+
+3. **Normally Distributed Residuals:**\
+
+i. **Univariate Normality:**\
+
+The residuals for the 5 models do not appear to follow a univariate normal distribution as shown in the Normal Probability Plots in **Figure.**\
+
+```{r, echo = FALSE}
+par(mfrow = c(2,3))
+qqnorm(resid(econ.m), main = "Econ QQ-Plot")
+qqline(resid(econ.m), col = "red")
+
+qqnorm(resid(pol.m), main = "Pol QQ-Plot")
+qqline(resid(pol.m), col = "red")
+
+qqnorm(resid(health.m), main = "Health QQ-Plot")
+qqline(resid(health.m), col = "red")
+
+qqnorm(resid(edu.m), main = "Edu QQ-Plot")
+qqline(resid(edu.m), col = "red")
+
+qqnorm(resid(tech.m), main = "Tech QQ-Plot")
+qqline(resid(tech.m), col = "red")
+```
+
+ii. **Multivariate Normality:**\
+
+The multivariate normal probability plots in **Figure** exhibit a few observations in each model that could be worsening the residuals correspondence to the normality condition. The observations that are annotated in the plots are those with the largest Mahalanobis distances and could potentially be removed further in the analysis.
+
+```{r, echo = FALSE}
+par(mfrow = c(2,3))
+mqqnorm(econ.m$residuals, main = "Multi-Normal Q-Q Econ")
+mqqnorm(pol.m$residuals, main = "Multi-Normal Q-Q Pol")
+mqqnorm(health.m$residuals, main = "Multi-Normal Q-Q Health")
+mqqnorm(edu.m$residuals, main = "Multi-Normal Q-Q Edu")
+mqqnorm(tech.m$residuals, main = "Multi-Normal Q-Q Tech")
+```
+
+# The Genetic Algorithm 
+
+The Genetic Algorithm is a problem-solving technique inspired by the principal of natural selection. Through this approach, iterative subsets of a population are created based off an arbitrary "fitness" value. Candidates with stronger ""fitness" are more-likely to reproduce and the process converges to **one optimal solution.** The Genetic Algorithm is used in a variety of settings, such as machine learning and artificial intelligence. In this case, the Genetic Algorithm is used to produce a subset of the strongest model. The measure of fitness chosen for this analysis is the **Bayesian Information Criterion (BIC).** The BIC contains a high penalty, and as a result does not tend to favor complex models in the same way AIC and $R^2$ does. This characteristic sets BIC values apart from other measures of fitness and is therefore an ideal choice for producing the best model.\
+
+Hear are the five models that will be applied to the genetic algorithm.\
+
+[INSERT TABLE]
+
+```{r, echo = FALSE, results = 'hide'}
+# GA Economic
+set.seed(777)
+mod <- econ.m
+x <- model.matrix(mod)[, -1]
+y <- model.response(model.frame(mod))
+
+fitness <- function(string) {
+  inc <- which(string == 1)
+  X <- cbind(1, x[,inc])
+  mod <- lm.fit(X, y)
+  class(mod) <- "lm"
+  -BIC(mod)
+}
+
+GA.econ <- ga("binary", fitness = fitness, nBits = ncol(x), names = colnames(x), monitor = plot)
+
+econ.new <- cbind(econ,time)
+
+econ.ga <- lm(women ~ . - SP.POP.TOTL - SP.URB.TOTL- SP.RUR.TOTL - NY.GDP.MKTP.CD - TX.VAL.MRCH.WL.CD - time - NE.EXP.GNFS.CD, 
+              data = econ.new[,GA.econ@solution == 1])
+```
+
+```{r, echo = FALSE, results = 'hide'}
+# GA Political
+set.seed(777)
+mod <- pol.m
+x <- model.matrix(mod)[, -1]
+y <- model.response(model.frame(mod))
+
+fitness <- function(string) {
+  inc <- which(string == 1)
+  X <- cbind(1, x[,inc])
+  mod <- lm.fit(X, y)
+  class(mod) <- "lm"
+  -BIC(mod)
+}
+
+GA.pol <- ga("binary", fitness = fitness, nBits = ncol(x), names = colnames(x), monitor = plot)
+
+pol.new <- cbind(pol,time)
+
+pol.ga <- lm(women ~ . - IQ.CPA.GNDR.XQ, 
+             data = pol.new[,GA.pol@solution == 1])
+```
+
+```{r, echo = FALSE, results = 'hide'}
+# GA Health
+set.seed(777)
+mod <- health.m
+x <- model.matrix(mod)[, -1]
+y <- model.response(model.frame(mod))
+
+fitness <- function(string) {
+  inc <- which(string == 1)
+  X <- cbind(1, x[,inc])
+  mod <- lm.fit(X, y)
+  class(mod) <- "lm"
+  -BIC(mod)
+}
+
+GA.health <- ga("binary", fitness = fitness, nBits = ncol(x), names = colnames(x), monitor = plot)
+
+health.new <- cbind(health, time)
+
+health.ga <- lm(women ~ . - SH.HIV.INCD - SP.DYN.LE00.IN - SP.DYN.IMRT.IN - SH.MMR.RISK - SH.H2O.BASW.ZS,  
+                data = health.new[,GA.health@solution == 1])
+```
+
+```{r, echo = FALSE, results = 'hide'}
+# GA Education 
+set.seed(777)
+mod <- edu.m
+x <- model.matrix(mod)[, -1]
+y <- model.response(model.frame(mod))
+
+fitness <- function(string) {
+  inc <- which(string == 1)
+  X <- cbind(1, x[,inc])
+  mod <- lm.fit(X, y)
+  class(mod) <- "lm"
+  -BIC(mod)
+}
+
+GA.edu <- ga("binary", fitness = fitness, nBits = ncol(x),
+         names = colnames(x), monitor = plot)
+
+edu.new <- cbind(edu, time)
+
+edu.ga <- lm(women ~ . - SE.PRE.ENRR, 
+             data = edu.new[,GA.edu@solution == 1])
+```
+
+```{r, echo = FALSE, results = 'hide'}
+# GA Technology
+set.seed(777)
+mod <- tech.m
+x <- model.matrix(mod)[, -1]
+y <- model.response(model.frame(mod))
+
+fitness <- function(string) {
+  inc <- which(string == 1)
+  X <- cbind(1, x[,inc])
+  mod <- lm.fit(X, y)
+  class(mod) <- "lm"
+  -BIC(mod)
+}
+
+GA.tech <- ga("binary", fitness = fitness, nBits = ncol(x),names = colnames(x), monitor = plot)
+
+tech.new <- cbind(tech, time)
+
+tech.ga <- lm(women ~ . - EG.ELC.ACCS.RU.ZS, 
+              data = tech.new[,GA.tech@solution == 1])
+```
+
+## Fitness Evolution
+
+The Fitness Evolution plots in **Figure** represent the negative BIC/fitness values corresponding to each of the iterations of the Genetic Algorithm. The function for the Genetic Algorithm maximizes the fitness value regardless of how it is defined. Ideal BIC values are smaller, hence why the BIC is negated in the fitness function. As a result, the fitness evolution is based on the negative of the BIC.\
+
+```{r, echo = FALSE}
+par(mfrow = c(2,3))
+plot(GA.econ, main = "Fitness Evolution Econ")
+plot(GA.pol, main = "Fitness Evolution Pol")
+plot(GA.health, main = "Fitness Evolution Health")
+plot(GA.edu, main = "Fitness Evolution Edu")
+plot(GA.tech, main = "Fitness Evolution Tech")
+```
+
+## Solution
+
+The *GA* function in R returns a a binary string that assigns a '1' to variables that are selected and '0' to variables excluded from the model. This is considered the "solution" to the Genetic Algorithm. The function is also defaulted at an initial population of 50 models that are randomly selected. 100 generations occur to choose the final model. The probability of two models crossing over to mutate into the next generation (crossover) is set to 80%. The probability of a model changing from one iteration to the next (mutation) is set to 10%.\
+
+Here is a summary of the Genetic Algorithm applied to each model:\
+
+
+```{r, echo = FALSE}
+# Economic GA Summary
+summary(GA.econ)
+```
+
+```{r, echo = FALSE}
+# Political GA Summary 
+summary(GA.pol)
+```
+
+```{r, echo = FALSE}
+# Health GA Summary 
+summary(GA.health)
+```
+
+```{r, echo = FALSE}
+# Education GA Summary
+summary(GA.edu)
+```
+
+```{r, echo = FALSE}
+# Technology GA Summary 
+summary(GA.tech)
+```
+
+**Note:** The multiple regression results after applying the genetic algorithm are located in the appendix. 
+
+# Results
+
+## Multivariate Analysis of Variance (MANOVA)
+
+In this section, a Multivariate Analysis of Variance is used to examine the significance of the predictors on all 9 of the response variables simultaneously. The results of the MANOVA are based on the null hypothesis that the coefficients of all predictors are zero. In other words, the MANOVA tests against the assumption that all independent variables in each model have no effect on the 9 response variables. Larger F-statistics and smaller p-values indicate that the variables have an effect on these women empowerment indicators and are therefore significant in the multivariate analysis.
+
+The economic variables that share a significant relationship with the 9 women empowerment indicators are Foreign direct investment, net outflows (% of GDP) and Official exchange rate (LCU per US$, period average). 
+
+```{r, echo = FALSE}
+# Economic MANOVA
+Manova(econ.ga)
+```
+
+The political variables that share a significant relationship with the 9 women empowerment indicators are CPIA policy and institutions for environmental sustainability rating (1=low to 6=high), CPIA policies for social inclusion/equity cluster average (1=low to 6=high), and time. 
+
+```{r, echo=FALSE}
+# Political MANOVA
+Manova(pol.ga)
+```
+
+The health-related variables that share a significant relationship with the 9 women empowerment indicators are immunization, measles (% of children ages 12-23 months), number of neonatal deaths, and time. 
+
+```{r, echo = FALSE}
+# Health MANOVA
+Manova(health.ga)
+```
+
+The education-related variables that share a significant relationship with the 9 women empowerment indicators are compulsory education, duration (years), adjusted savings: education expenditure (% of GNI), and time. 
+
+```{r, echo = FALSE}
+# Education MANOVA
+Manova(edu.ga)
+```
+
+The technology-related variables that share a significant relationship with the 9 women empowerment are fixed telephone subscriptions, transport services (% of service imports, BoP), Access to electricity (% of population), and time.
+
+```{r, echo = FALSE}
+# Technology MANOVA
+Manova(tech.ga)
+```
+
+## Significance Heatmaps 
+
+The heat maps below in **Figures **, visually demonstrate the significance of each of the predictors on the 9 response variables. Darker, more pigmented segments indicate stronger significance, whereas lighter shadings indicate a lack of significance. These maps are fairly consistent with the results of the MANOVA in the previous section.
+
+```{r, echo = FALSE}
+heatmap(coef(econ.ga))
+heatmap((coef(pol.ga)))
+heatmap(coef(health.ga))
+heatmap(coef(edu.ga))
+heatmap(coef(tech.ga))
+```
+
+## Predictions
+
+The predictions for fertility rate, female mortality rate, incidence of HIV in women, percent of female population, female life expectancy, women employed in agriculture, women employed in industry, female contributing family members, and female suicides are shown in **Tables** in this respective order. Predictions are made for the year 2023 and are calculated based off the values of the predictors in this same year or the most current year. Models do not have predictions if non of the variables were significant. These results can be compared to the actual women empowerment indicators in 2023. It appears the the health model seems to contain the most accurate predictions, but it is hard to say, since information is limited.
+
+```{r, echo = FALSE}
+econ.ga.fert <- lm(formula = SP.DYN.TFRT.IN ~  PA.NUS.FCRF
+                   , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+econ.ga.mort <- lm(formula = SP.DYN.AMRT.FE ~ PA.NUS.FCRF
+                   , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+econ.ga.hiv <- lm(formula = SH.HIV.1524.FE.ZS  ~ PA.NUS.FCRF
+                   , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+econ.ga.pop <- lm(formula = SP.POP.TOTL.FE.ZS ~ BM.KLT.DINV.WD.GD.ZS + PA.NUS.FCRF
+                 ,data = cbind(women,econ.new[, GA.econ@solution == 1]))
+                  
+econ.ga.life <- lm(formula = SP.DYN.LE00.FE.IN ~ PA.NUS.FCRF
+                   , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+econ.ga.agr <- lm(formula = SL.AGR.EMPL.FE.ZS ~ PA.NUS.FCRF
+                   , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+econ.ga.ind <- lm(formula = SL.IND.EMPL.FE.ZS ~ PA.NUS.FCRF, 
+                  data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+econ.ga.fam <- lm(formula = SL.FAM.WORK.FE.ZS ~ PA.NUS.FCRF
+                  , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+econ.ga.suic <- lm(formula = SH.STA.SUIC.FE.P5 ~ PA.NUS.FCRF,
+                   data = cbind(women,econ.new[, GA.econ@solution == 1]))
+```
+
+```{r, echo = FALSE}
+pol.ga.fert <- lm(formula = SP.DYN.TFRT.IN ~ IQ.CPA.ENVR.XQ + IQ.CPA.SOCI.XQ + 
+    time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+
+pol.ga.mort <- lm(formula = SP.DYN.AMRT.FE ~ time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+
+pol.ga.hiv <- lm(formula = SH.HIV.1524.FE.ZS ~ time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+                  
+pol.ga.life <- lm(formula = SP.DYN.LE00.FE.IN ~ time
+                   , data = cbind(women,cbind(women, pol.new[, GA.pol@solution == 1])))
+
+pol.ga.agr <- lm(formula = SL.AGR.EMPL.FE.ZS ~ time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+
+pol.ga.ind <- lm(formula = SL.IND.EMPL.FE.ZS ~ time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+
+pol.ga.fam <- lm(formula = SL.FAM.WORK.FE.ZS ~ time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+```
+
+```{r, echo = FALSE}
+health.ga.fert <- lm(formula = SP.DYN.TFRT.IN ~ SH.DTH.NMRT + time, 
+    data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+health.ga.mort <- lm(formula = SP.DYN.AMRT.FE ~ SH.IMM.MEAS + SH.DTH.NMRT + time, 
+    data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+health.ga.hiv <- lm(formula = SH.HIV.1524.FE.ZS ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+health.ga.pop <- lm(formula = SP.POP.TOTL.FE.ZS ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+                  
+health.ga.life <- lm(formula = SP.DYN.LE00.FE.IN ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+health.ga.agr <- lm(formula = SL.AGR.EMPL.FE.ZS ~  
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+health.ga.ind <- lm(formula = SL.IND.EMPL.FE.ZS ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+health.ga.fam <- lm(formula = SL.FAM.WORK.FE.ZS ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+health.ga.suic <- lm(formula = SH.STA.SUIC.FE.P5 ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+```
+
+```{r, echo = FALSE}
+edu.ga.fert <- lm(formula = SP.DYN.TFRT.IN ~ SE.COM.DURS + 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+edu.ga.mort <- lm(formula = SP.DYN.AMRT.FE ~ 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+edu.ga.hiv <- lm(formula = SH.HIV.1524.FE.ZS ~ SE.COM.DURS + NY.ADJ.AEDU.GN.ZS + 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+edu.ga.pop <- lm(formula = SP.POP.TOTL.FE.ZS ~ SE.COM.DURS, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+                  
+edu.ga.life <- lm(formula = SP.DYN.LE00.FE.IN ~ 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+edu.ga.agr <- lm(formula = SL.AGR.EMPL.FE.ZS ~  
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+edu.ga.ind <- lm(formula = SL.IND.EMPL.FE.ZS ~ 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+edu.ga.fam <- lm(formula = SL.FAM.WORK.FE.ZS ~ SE.COM.DURS + NY.ADJ.AEDU.GN.ZS + 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+edu.ga.suic <- lm(formula = SH.STA.SUIC.FE.P5 ~ NY.ADJ.AEDU.GN.ZS + 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+```
+
+```{r, echo = FALSE}
+tech.ga.fert <- lm(formula = SP.DYN.TFRT.IN ~ IT.MLT.MAIN +  time, data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+tech.ga.mort <- lm(formula = SP.DYN.AMRT.FE ~  
+    BM.GSR.TRAN.ZS + EG.ELC.ACCS.RU.ZS + EG.ELC.ACCS.ZS + time
+    , data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+tech.ga.hiv <- lm(formula = SH.HIV.1524.FE.ZS ~ IT.MLT.MAIN + time
+              , data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+tech.ga.pop <- lm(formula = SP.POP.TOTL.FE.ZS ~ IT.MLT.MAIN + EG.ELC.ACCS.RU.ZS 
+                  + EG.ELC.ACCS.ZS + time, data = cbind(women, tech.new[, GA.tech@solution == 1]))
+                  
+tech.ga.life <- lm(formula = SP.DYN.LE00.FE.IN ~ EG.ELC.ACCS.ZS + time
+                   , data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+tech.ga.agr <- lm(formula = SL.AGR.EMPL.FE.ZS ~  
+    time, data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+tech.ga.ind <- lm(formula = SL.IND.EMPL.FE.ZS ~ EG.ELC.ACCS.ZS
+                  , data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+tech.ga.fam <- lm(formula = SL.FAM.WORK.FE.ZS ~ IT.MLT.MAIN + time
+                  , data = cbind(women, tech.new[, GA.tech@solution == 1]))
+```
+
+```{r, echo = FALSE}
+# Update Models with Significant MANOVA Results
+econ.ga <- update(econ.ga, . ~ .)
+pol.ga <- update(pol.ga, . ~ . - CC.EST - PV.EST - IQ.CPA.PADM.XQ )
+health.ga <- update(health.ga, . ~ . - SH.IMM.HEPB)
+edu.ga <- update(edu.ga, . ~ . - SE.PRM.ENRR)
+tech.ga <- update(edu.ga, . ~ . - TM.VAL.OTHR.ZS.WT )
+```
+
+```{r, echo = FALSE}
+# Economic Predictions
+new.df.econ <- data.frame(BM.KLT.DINV.WD.GD.ZS = c(0.0433777747199944), PA.NUS.FCRF = c(117.865989201683))
+Fert <- predict(econ.ga.fert, newdata = new.df.econ)         
+Mort <- predict(econ.ga.mort, newdata = new.df.econ)                          
+HIV <- predict(econ.ga.hiv, newdata = new.df.econ)                          
+Pop <- predict(econ.ga.pop, newdata = new.df.econ)                          
+Life <- predict(econ.ga.life, newdata = new.df.econ)                          
+Agr <- predict(econ.ga.agr, newdata = new.df.econ)
+Ind <- predict(econ.ga.ind, newdata = new.df.econ)
+Fam <- predict(econ.ga.fam, newdata = new.df.econ)
+Sui <- predict(econ.ga.suic, newdata = new.df.econ)
+
+econ.pred <- data.frame(
+  Fert = Fert,
+  Mort = Mort,
+  HIV = HIV,
+  Pop = Pop,
+  Life = Life,
+  Agr = Agr,
+  Ind = Ind,
+  Fam = Fam,
+  Sui = Sui
+)
+
+econ.pred <- t(econ.pred)
+
+# Convert back to a data frame and assign row names
+econ.pred <- data.frame(econ.pred)
+rownames(econ.pred) <- c("Fertility Rate", "Mortality Rate", "HIV Incidence", "Female Population", "Life Expectency", "Agriculture Employment", "Industry Employment", "Family Workers", "Suicide Rate")
+kable(econ.pred, caption = "Women Empowerment Predictons (Economic Model), Year 2022", col.names = "Predictions", format = "latex")
+```
+
+```{r, echo = FALSE}
+new.df.pol <- data.frame(IQ.CPA.ENVR.XQ = c(4), IQ.CPA.SOCI.XQ  = c(3.8), time = 23)
+Fert <- predict(pol.ga.fert, newdata = new.df.pol)         
+Mort <- predict(pol.ga.mort, newdata = new.df.pol)                          
+HIV <- predict(pol.ga.hiv, newdata = new.df.pol)                          
+Life <- predict(pol.ga.life, newdata = new.df.pol)                          
+Agr <- predict(pol.ga.agr, newdata = new.df.pol)
+Ind <- predict(pol.ga.ind, newdata = new.df.pol)
+Fam <- predict(pol.ga.fam, newdata = new.df.pol)
+
+pol.pred <- data.frame(
+  Fert = Fert,
+  Mort = Mort,
+  HIV = HIV,
+  Life = Life,
+  Agr = Agr,
+  Ind = Ind,
+  Fam = Fam
+)
+
+pol.pred <- t(pol.pred)
+
+# Convert back to a data frame and assign row names
+pol.pred <- data.frame(pol.pred)
+rownames(pol.pred) <- c("Fertility Rate", "Mortality Rate", "HIV Incidence", "Life Expectency", "Agriculture Employment", "Industry Employment", "Family Workers")
+kable(pol.pred, caption = "Women Empowerment Predictons (Political Model), Year 2022", col.names = "Predictions", format = "latex")
+```
+
+```{r, echo = FALSE}
+new.df.health <- data.frame(SH.IMM.MEAS = c(90), SH.DTH.NMRT = c(27040), time = 23)
+Fert <- predict(health.ga.fert, newdata = new.df.health)         
+Mort <- predict(health.ga.mort, newdata = new.df.health)                          
+HIV <- predict(health.ga.hiv, newdata = new.df.health) 
+pop <- predict(health.ga.pop, newdata = new.df.health)                          
+Life <- predict(health.ga.life, newdata = new.df.health)                          
+Agr <- predict(health.ga.agr, newdata = new.df.health)
+Ind <- predict(health.ga.ind, newdata = new.df.health)
+Fam <- predict(health.ga.fam, newdata = new.df.health)
+
+health.pred <- data.frame(
+  Fert = Fert,
+  Mort = Mort,
+  HIV = HIV,
+  Pop = Pop,
+  Life = Life,
+  Agr = Agr,
+  Ind = Ind,
+  Fam = Fam,
+  Sui = Sui
+)
+
+health.pred <- t(health.pred)
+
+# Convert back to a data frame and assign row names
+health.pred <- data.frame(health.pred)
+rownames(health.pred) <- c("Fertility Rate", "Mortality Rate", "HIV Incidence", "Female Population", "Life Expectency", "Agriculture Employment", "Industry Employment", "Family Workers", "Suicide Rate")
+kable(health.pred, caption = "Women Empowerment Predictons (Health Model), Year 2022", col.names = "Predictions", format = "latex")
+```
+
+```{r, echo = FALSE}
+new.df.edu <- data.frame(SE.COM.DURS = c(12), NY.ADJ.AEDU.GN.ZS = c(4.87050510355228), time = 23)
+Fert <- predict(edu.ga.fert, newdata = new.df.edu)         
+Mort <- predict(edu.ga.mort, newdata = new.df.edu)                          
+HIV <- predict(edu.ga.hiv, newdata = new.df.edu) 
+pop <- predict(edu.ga.pop, newdata = new.df.edu)                          
+Life <- predict(edu.ga.life, newdata = new.df.edu)                          
+Agr <- predict(edu.ga.agr, newdata = new.df.edu)
+Ind <- predict(edu.ga.ind, newdata = new.df.edu)
+Fam <- predict(edu.ga.fam, newdata = new.df.edu)
+
+edu.pred <- data.frame(
+  Fert = Fert,
+  Mort = Mort,
+  HIV = HIV,
+  Pop = Pop,
+  Life = Life,
+  Agr = Agr,
+  Ind = Ind,
+  Fam = Fam,
+  Sui = Sui
+)
+
+edu.pred <- t(edu.pred)
+
+# Convert back to a data frame and assign row names
+edu.pred <- data.frame(edu.pred)
+rownames(edu.pred) <- c("Fertility Rate", "Mortality Rate", "HIV Incidence", "Female Population", "Life Expectency", "Agriculture Employment", "Industry Employment", "Family Workers", "Suicide Rate")
+kable(edu.pred, caption = "Women Empowerment Predictons (Education Model), Year 2022", col.names = "Predictions", format = "latex")
+```
+
+```{r, echo = FALSE}
+new.df.tech <- data.frame(IT.MLT.MAIN = c(63107), BM.GSR.TRAN.ZS = 40.4400694921581, EG.ELC.ACCS.ZS  = c(68.172482281834), time = 23)
+Fert <- predict(tech.ga.fert, newdata = new.df.tech)         
+#Mort <- predict(tech.ga.mort, newdata = new.df.tech)                          
+HIV <- predict(tech.ga.hiv, newdata = new.df.tech) 
+#pop <- predict(tech.ga.pop, newdata = new.df.tech)                          
+Life <- predict(tech.ga.life, newdata = new.df.tech)                          
+Agr <- predict(tech.ga.agr, newdata = new.df.tech)
+Ind <- predict(tech.ga.ind, newdata = new.df.tech)
+Fam <- predict(tech.ga.fam, newdata = new.df.tech)
+
+tech.pred <- data.frame(
+  Fert = Fert,
+  HIV = HIV,
+  Life = Life,
+  Agr = Agr,
+  Ind = Ind,
+  Fam = Fam,
+  Sui = Sui
+)
+
+tech.pred <- t(tech.pred)
+
+# Convert back to a data frame and assign row names
+tech.pred <- data.frame(tech.pred)
+rownames(tech.pred) <- c("Fertility Rate", "HIV Incidence", "Life Expectency", "Agriculture Employment", "Industry Employment", "Family Workers", "Suicide Rate")
+kable(tech.pred, caption = "Women Empowerment Predictons (Technology Model), Year 2022", col.names = "Predictions", format = "latex")
+```
+
+```{r, echo = FALSE}
+# Actual 
+actual <- data.frame(
+  Fert = 3.3,
+  Mort = NA,
+  HIV = NA,
+  Pop = 50.4371746922081,
+  Life = 64.09,
+  Agr = 34.32617755,
+  Ind = 10.56182439,
+  Fam = 30.08136054,
+  Sui = NA
+)
+
+actual <- t(actual)
+
+# Convert back to a data frame and assign row names
+actual <- data.frame(actual)
+rownames(actual) <- c("Fertility Rate", "Mortality Rate", "HIV Incidence", "Female Population", "Life Expectency", "Agriculture Employment", "Industry Employment", "Family Workers", "Suicide Rate")
+kable(edu.pred, caption = "Women Empowerment Indicators (Actual), Year 2022", col.names = "Predictions", format = "latex")
+```
+
+# Relationships Between Responses
+
+As one would expect, the relationships across most of the women empowerment indicators appear to be linear and very strongly associated based on the correlation plot in **Figure.** The relationships that appear weak and insignificant (linear) are between female percentage of population and each of the remaining response variables. This may suggest a possible quadratic association between female percentage of population and the other 8 response variables that is not being detected with correlation.
+
+```{r, echo = FALSE}
+cor.women <- cor(women)
+corrplot(cor.women)
+```
+
+
+# Diagnostics 
+
+This section begins with the examination of the residuals. 
+
+```{r, echo = FALSE}
+econ.res <- cbind(econ.ga.fert$residuals, econ.ga.mort$residuals, econ.ga.hiv$residuals,
+                  econ.ga.pop$residuals, econ.ga.life$residuals, econ.ga.agr$residuals,
+                  econ.ga.ind$residuals, econ.ga.suic$residuals)
+
+colnames(econ.res) <- c("Fert", "Mort", "HIV", "Pop", "Life", "Agr", "Ind", "Sui")
+
+
+pol.res <- cbind(pol.ga.fert$residuals, pol.ga.mort$residuals, pol.ga.hiv$residuals,
+                pol.ga.life$residuals, pol.ga.agr$residuals, pol.ga.ind$residuals)
+
+colnames(pol.res) <- c("Fert", "Mort", "HIV", "Life", "Agr", "Ind")
+
+health.res <- cbind(health.ga.fert$residuals, health.ga.mort$residuals, health.ga.hiv$residuals,
+                  health.ga.pop$residuals, health.ga.life$residuals, health.ga.agr$residuals,
+                  health.ga.ind$residuals, health.ga.suic$residuals)
+
+colnames(health.res) <- c("Fert", "Mort", "HIV", "Pop", "Life", "Agr", "Ind", "Sui")
+
+
+edu.res <- cbind(edu.ga.fert$residuals, edu.ga.mort$residuals, edu.ga.hiv$residuals,
+                  edu.ga.pop$residuals, edu.ga.life$residuals, edu.ga.agr$residuals,
+                  edu.ga.ind$residuals, edu.ga.suic$residuals)
+
+colnames(edu.res) <- c("Fert", "Mort", "HIV", "Pop", "Life", "Agr", "Ind", "Sui")
+
+
+tech.res <- cbind(tech.ga.fert$residuals, tech.ga.mort$residuals, tech.ga.hiv$residuals,
+                  tech.ga.pop$residuals, tech.ga.life$residuals, tech.ga.agr$residuals,
+                  tech.ga.ind$residuals)
+
+colnames(tech.res) <- c("Fert", "Mort", "HIV", "Pop", "Life", "Agr", "Ind")
+```
+
+## Uncorrelated/Independent Residuals:
+
+Based on the Residuals versus Observation Order plot in **Figure**, the models appear to have highly correlated residuals, since the residuals are following trends and "fanning out", especially in the technology model. The variance of the residuals seems to increase with observation order. The Durbin-Watson test detected autocorrelation in the residuals, therefore this assumption has been violated.
+
+```{r, echo = FALSE}
+par(mfrow = c(2,3))
+plot(order(econ.res), econ.res, xlab = "Observation Order", ylab = "Residuals", main = "Economic R v O")
+
+plot(order(pol.res), pol.res, xlab = "Observation Order", ylab = "Residuals", main = "Political R v O")
+
+plot(order(health.res), health.res, xlab = "Observation Order", ylab = "Residuals", main = "Health R v O")
+
+plot(order(edu.res), edu.res, xlab = "Observation Order", ylab = "Residuals", main = "Education R v O")
+
+plot(order(tech.res), tech.res, xlab = "Observation Order", ylab = "Residuals", main = "Technology R v O")
+```
+
+```{r, echo = FALSE}
+dw.econ <- dwtest(econ.ga)
+dw.pol <- dwtest(pol.ga)
+dw.health <- dwtest(health.ga)
+dw.edu <- dwtest(edu.ga)
+dw.tech <- dwtest(tech.ga)
+```
+
+# Principal Components and Biplots of Residuals
+
+The biplots of the pricipal components of the residuals in all 5 models are shown in **Figure.** These plots can further demonstrate the source of these auto-correlated residuals. 
+
+The loadings of the first and second principal components in the economic model show that the residuals of fertility, agriculture employment, mortality, HIV prevalence, population, and suicide rates are positively correlated, while life expectancy and industry employment are positively correlated.\
+
+The loadings of the first and second principal components in the political model show that the residuals of fertility, agriculture employment, mortality, and HIV prevalence are positively correlated, while life expectancy and industry employment or positively correlated.\
+
+The loadings of the first and second principal components in the health model show that the residuals of fertility, agriculture employment, industry employment, mortality, HIV prevalence, population, suicide rates, and contributing family workers are positively correlated, while life expectancy appears uncorrelated with the rest.\
+
+The loadings of the first and second principal components in the education model show that the residuals of industry employment, population, mortality, and agriculture employment are positively correlated. These variables are negatively correlated with the residuals of life expectancy. The residuals for fertility and suicide rates are positively correlated.\
+
+The loadings of the first and second principal components in the technology model show that the residuals of mortality and agriculture employment, as well as population, HIV prevalence, and industry employment are positively correlated. The residuals for fertility and life expectancy appear independent.\
+
+```{r, echo = FALSE}
+# Biplots of Residuals
+par(mfrow = c(2,3))
+
+biplot(prcomp(econ.res, scale = TRUE), cex = c(.6, 1.2), col = c(3, 4), cex.lab=1.5, xlab = "PC1", ylab = "PC2", main = "Biplot of Economic Residuals")
+
+biplot(prcomp(pol.res, scale = TRUE), cex = c(.6, 1.2), col = c(3, 4), cex.lab=1.5, xlab = "PC1", ylab = "PC2", main = "Biplot of Politcal Residuals")
+
+biplot(prcomp(health.res, scale = TRUE), cex = c(.6, 1.2), col = c(3, 4), cex.lab=1.5, xlab = "PC1", ylab = "PC2", main = "Biplot of Health Residuals")
+
+biplot(prcomp(edu.res, scale = TRUE), cex = c(.6, 1.2), col = c(3, 4), cex.lab=1.5, xlab = "PC1", ylab = "PC2", main = "Biplot of Education Residuals")
+
+biplot(prcomp(tech.res, scale = TRUE), cex = c(.6, 1.2), col = c(3, 4), cex.lab=1.5, xlab = "PC1", ylab = "PC2", main = "Biplot of Technology Residuals")
+```
+
+## Constant Variance:
+
+The plots of the Residuals versus Fitted Values in **Figure** demonstrate unequal variance in the residuals of the 5 models. The variance of the residuals drastically increase with larger fitted values. 
+
+```{r, echo = FALSE}
+par(mfrow = c(2,3))
+plot(fitted(econ.ga), resid(econ.ga), xlab = "Fitted Values", ylab = "Residuals", main = "Economic R v F")
+
+plot(fitted(pol.ga), resid(pol.ga), xlab = "Fitted Values", ylab = "Residuals", main = "Political R v F")
+
+plot(fitted(health.ga), resid(health.ga), xlab = "Fitted Values", ylab = "Residuals", main = "Health R v F")
+
+plot(fitted(edu.ga), resid(edu.ga), xlab = "Fitted Values", ylab = "Residuals", main = "Education R v F")
+
+plot(fitted(tech.ga), resid(tech.ga), xlab = "Fitted Values", ylab = "Residuals", main = "Technology R v F")
+```
+
+
+## Normality:
+
+i. **Univariate Normality:**\
+
+The residuals for the 5 models do not appear to follow a univariate normal distribution as shown in the Normal Probability Plots in **Figure.**\
+
+```{r, echo = FALSE}
+# Univariate QQ
+par(mfrow = c(2,3))
+qqnorm(econ.res, main = "Econ QQ-Plot")
+qqline(econ.res, col = "red")
+
+qqnorm(pol.res, main = "Pol QQ-Plot")
+qqline(pol.res, col = "red")
+
+qqnorm(health.res, main = "Health QQ-Plot")
+qqline(health.res, col = "red")
+
+qqnorm(edu.res, main = "Edu QQ-Plot")
+qqline(edu.res, col = "red")
+
+qqnorm(tech.res, main = "Tech QQ-Plot")
+qqline(tech.res, col = "red")
+```
+
+ii. **Multivariate Normality:**\
+
+The multivariate normal probability plots in **Figure** exhibit a few observations in each model that could be worsening the residuals correspondence to the normality condition. The observations with the largest Mahalanobis distances were removed before performing the Multivariate Shapiro-Wilk Test for Normality. These omitted values did not remedy the violation to the multivariate normality condition for the residuals. According to the Shapiro-Wilk test, the residuals for the 5 multivariate models are not normally distributed. 
+
+```{r, echo = FALSE}
+#Multi Q-Q
+par(mfrow = c(2,3))
+mqqnorm(resid(econ.ga), main = "Multi-Normal Q-Q Econ")
+mqqnorm(resid(pol.ga), main = "Multi-Normal Q-Q Pol")
+mqqnorm(resid(health.ga), main = "Multi-Normal Q-Q Health")
+mqqnorm(resid(edu.ga), main = "Multi-Normal Q-Q Edu")
+mqqnorm(resid(tech.ga), main = "Multi-Normal Q-Q Tech")
+```
+
+
+```{r, echo = FALSE}
+mshapiro.test( t( econ.res[-c(2000,2018)] ))
+mshapiro.test( t( pol.res[-c(2000,2020)] ))
+mshapiro.test( t( health.res[-c(2001,2021)] ))
+mshapiro.test( t( edu.res[-c(2020,2021)] ))
+mshapiro.test( t( tech.res[-c(2020,2021)] ))
+```
+Logarithmic Transformation 
+
+A log transformation on the response variables in each model is considered to remedy violations to the normal distribution and the constant variance assumption. Models 6-10 are transformed to the following. 
+
+```{r, echo = FALSE}
+log.econ.ga.fert <- lm(formula = log(SP.DYN.TFRT.IN) ~  PA.NUS.FCRF
+                   , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+log.econ.ga.mort <- lm(formula = log(SP.DYN.AMRT.FE) ~ PA.NUS.FCRF
+                   , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+log.econ.ga.hiv <- lm(formula = log(SH.HIV.1524.FE.ZS ) ~ PA.NUS.FCRF
+                   , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+log.econ.ga.pop <- lm(formula = log(SP.POP.TOTL.FE.ZS) ~ BM.KLT.DINV.WD.GD.ZS + PA.NUS.FCRF
+                 ,data = cbind(women,econ.new[, GA.econ@solution == 1]))
+                  
+log.econ.ga.life <- lm(formula = log(SP.DYN.LE00.FE.IN) ~ PA.NUS.FCRF
+                   , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+log.econ.ga.agr <- lm(formula = log(SL.AGR.EMPL.FE.ZS) ~ PA.NUS.FCRF
+                   , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+log.econ.ga.ind <- lm(formula = log(SL.IND.EMPL.FE.ZS) ~ PA.NUS.FCRF, 
+                  data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+log.econ.ga.fam <- lm(formula = log(SL.FAM.WORK.FE.ZS) ~ PA.NUS.FCRF
+                  , data = cbind(women,econ.new[, GA.econ@solution == 1]))
+
+log.econ.ga.suic <- lm(formula = log(SH.STA.SUIC.FE.P5) ~ PA.NUS.FCRF,
+                   data = cbind(women,econ.new[, GA.econ@solution == 1]))
+```
+
+```{r, echo = FALSE}
+log.pol.ga.fert <- lm(formula  = log(SP.DYN.TFRT.IN) ~ IQ.CPA.ENVR.XQ + IQ.CPA.SOCI.XQ + 
+    time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+
+log.pol.ga.mort <- lm(formula  = log(SP.DYN.AMRT.FE) ~ time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+
+log.pol.ga.hiv <- lm(formula  = log(SH.HIV.1524.FE.ZS) ~ time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+                  
+log.pol.ga.life <- lm(formula  = log(SP.DYN.LE00.FE.IN) ~ time
+                   , data = cbind(women, pol.new[, GA.pol@solution == 1]))
+
+log.pol.ga.agr <- lm(formula  = log(SL.AGR.EMPL.FE.ZS) ~ time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+
+log.pol.ga.ind <- lm(formula  = log(SL.IND.EMPL.FE.ZS) ~ time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+
+log.pol.ga.fam <- lm(formula  = log(SL.FAM.WORK.FE.ZS) ~ time, data = cbind(women, pol.new[, GA.pol@solution == 1]))
+```
+
+```{r, echo = FALSE}
+log.health.ga.fert <- lm(formula = log(SP.DYN.TFRT.IN) ~ SH.DTH.NMRT + time, 
+    data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+log.health.ga.mort <- lm(formula = log(SP.DYN.AMRT.FE) ~ SH.IMM.MEAS + SH.DTH.NMRT + time, 
+    data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+log.health.ga.hiv <- lm(formula = log(SH.HIV.1524.FE.ZS) ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+log.health.ga.pop <- lm(formula = log(SP.POP.TOTL.FE.ZS) ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+                  
+log.health.ga.life <- lm(formula = log(SP.DYN.LE00.FE.IN) ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+log.health.ga.agr <- lm(formula = log(SL.AGR.EMPL.FE.ZS) ~  
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+log.health.ga.ind <- lm(formula = log(SL.IND.EMPL.FE.ZS) ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+log.health.ga.fam <- lm(formula = log(SL.FAM.WORK.FE.ZS) ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+
+log.health.ga.suic <- lm(formula = log(SH.STA.SUIC.FE.P5) ~ SH.IMM.MEAS + SH.DTH.NMRT + 
+    time, data = cbind(women, cbind(women, health.new[, GA.health@solution == 1])))
+```
+
+```{r, echo = FALSE}
+log.edu.ga.fert <- lm(formula = log(SP.DYN.TFRT.IN) ~ SE.COM.DURS + 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+log.edu.ga.mort <- lm(formula = log(SP.DYN.AMRT.FE) ~ 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+log.edu.ga.hiv <- lm(formula = log(SH.HIV.1524.FE.ZS) ~ SE.COM.DURS + NY.ADJ.AEDU.GN.ZS + 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+log.edu.ga.pop <- lm(formula = log(SP.POP.TOTL.FE.ZS) ~ SE.COM.DURS, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+                  
+log.edu.ga.life <- lm(formula = log(SP.DYN.LE00.FE.IN) ~ 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+log.edu.ga.agr <- lm(formula = log(SL.AGR.EMPL.FE.ZS) ~  
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+log.edu.ga.ind <- lm(formula = log(SL.IND.EMPL.FE.ZS) ~ 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+log.edu.ga.fam <- lm(formula = log(SL.FAM.WORK.FE.ZS) ~ SE.COM.DURS + NY.ADJ.AEDU.GN.ZS + 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+
+log.edu.ga.suic <- lm(formula = log(SH.STA.SUIC.FE.P5) ~ NY.ADJ.AEDU.GN.ZS + 
+    time, data = cbind(women, edu.new[, GA.edu@solution == 1]))
+```
+
+```{r, echo = FALSE}
+log.tech.ga.fert <- lm(formula = log(SP.DYN.TFRT.IN) ~ IT.MLT.MAIN +  time, data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+log.tech.ga.mort <- lm(formula = log(SP.DYN.AMRT.FE) ~  
+    BM.GSR.TRAN.ZS + EG.ELC.ACCS.RU.ZS + EG.ELC.ACCS.ZS + time
+    , data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+log.tech.ga.hiv <- lm(formula = log(SH.HIV.1524.FE.ZS) ~ IT.MLT.MAIN + time
+              , data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+log.tech.ga.pop <- lm(formula = log(SP.POP.TOTL.FE.ZS) ~ IT.MLT.MAIN + EG.ELC.ACCS.RU.ZS 
+                  + EG.ELC.ACCS.ZS + time, data = cbind(women, tech.new[, GA.tech@solution == 1]))
+                  
+log.tech.ga.life <- lm(formula = log(SP.DYN.LE00.FE.IN) ~ EG.ELC.ACCS.ZS + time
+                   , data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+log.tech.ga.agr <- lm(formula = log(SL.AGR.EMPL.FE.ZS) ~  
+    time, data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+log.tech.ga.ind <- lm(formula = log(SL.IND.EMPL.FE.ZS) ~ EG.ELC.ACCS.ZS
+                  , data = cbind(women, tech.new[, GA.tech@solution == 1]))
+
+log.tech.ga.fam <- lm(formula = log(SL.FAM.WORK.FE.ZS) ~ IT.MLT.MAIN + time
+                  , data = cbind(women, tech.new[, GA.tech@solution == 1]))
+```
+
+```{r, echo = FALSE}
+log.econ.res <- cbind(log.econ.ga.fert$residuals, log.econ.ga.mort$residuals, log.econ.ga.hiv$residuals,
+                  log.econ.ga.pop$residuals, log.econ.ga.life$residuals, log.econ.ga.agr$residuals,
+                  log.econ.ga.ind$residuals, log.econ.ga.suic$residuals)
+
+colnames(log.econ.res) <- c("Fert", "Mort", "HIV", "Pop", "Life", "Agr", "Ind", "Sui")
+
+
+log.pol.res <- cbind(log.pol.ga.fert$residuals, log.pol.ga.mort$residuals, log.pol.ga.hiv$residuals,
+                log.pol.ga.life$residuals, log.pol.ga.agr$residuals, log.pol.ga.ind$residuals)
+
+colnames(log.pol.res) <- c("Fert", "Mort", "HIV", "Life", "Agr", "Ind")
+
+log.health.res <- cbind(log.health.ga.fert$residuals, log.health.ga.mort$residuals, log.health.ga.hiv$residuals,
+                  log.health.ga.pop$residuals, log.health.ga.life$residuals, log.health.ga.agr$residuals,
+                  log.health.ga.ind$residuals, log.health.ga.suic$residuals)
+
+colnames(log.health.res) <- c("Fert", "Mort", "HIV", "Pop", "Life", "Agr", "Ind", "Sui")
+
+
+log.edu.res <- cbind(log.edu.ga.fert$residuals, log.edu.ga.mort$residuals, log.edu.ga.hiv$residuals,
+                  log.edu.ga.pop$residuals, log.edu.ga.life$residuals, log.edu.ga.agr$residuals,
+                  log.edu.ga.ind$residuals, log.edu.ga.suic$residuals)
+
+colnames(log.edu.res) <- c("Fert", "Mort", "HIV", "Pop", "Life", "Agr", "Ind", "Sui")
+
+
+log.tech.res <- cbind(log.tech.ga.fert$residuals, log.tech.ga.mort$residuals, log.tech.ga.hiv$residuals,
+                  log.tech.ga.pop$residuals, log.tech.ga.life$residuals, log.tech.ga.agr$residuals,
+                  log.tech.ga.ind$residuals)
+
+colnames(log.tech.res) <- c("Fert", "Mort", "HIV", "Pop", "Life", "Agr", "Ind")
+```
+
+
+```{r, echo = FALSE}
+# Logarithmic Models
+log.econ.ga <- lm(log(women) ~ . - SP.POP.TOTL - SP.URB.TOTL- SP.RUR.TOTL - NY.GDP.MKTP.CD - TX.VAL.MRCH.WL.CD - time - NE.EXP.GNFS.CD, 
+              data = econ.new[,GA.econ@solution == 1])
+
+log.pol.ga <- lm(log(women) ~ . - IQ.CPA.GNDR.XQ, 
+             data = pol.new[,GA.pol@solution == 1])
+
+log.health.ga <- lm(log(women) ~ . - SH.HIV.INCD - SP.DYN.LE00.IN - SP.DYN.IMRT.IN - SH.MMR.RISK - SH.H2O.BASW.ZS,  
+                data = health.new[,GA.health@solution == 1])
+
+log.edu.ga <- lm(log(women) ~ . - SE.PRE.ENRR, 
+             data = edu.new[,GA.edu@solution == 1])
+
+log.tech.ga <- lm(log(women) ~ . - EG.ELC.ACCS.RU.ZS, 
+              data = tech.new[,GA.tech@solution == 1])
+```
+
+#### Constant Variance 
+
+```{r, echo = FALSE}
+par(mfrow = c(2,3))
+plot(fitted(log.econ.ga), resid(log.econ.ga), xlab = "Fitted Values", ylab = "Residuals", main = "Economic R v F(Log Transf)")
+
+plot(fitted(log.pol.ga), resid(log.pol.ga), xlab = "Fitted Values", ylab = "Residuals", main = "Political R v F(Log Transf)")
+
+plot(fitted(log.health.ga), resid(log.health.ga), xlab = "Fitted Values", ylab = "Residuals", main = "Health R v F(Log Transf)")
+
+plot(fitted(log.edu.ga), resid(log.edu.ga), xlab = "Fitted Values", ylab = "Residuals", main = "Education R v F(Log Transf)")
+
+plot(fitted(log.tech.ga), resid(log.tech.ga), xlab = "Fitted Values", ylab = "Residuals", main = "Technology R v F(Log Tranf)")
+```
+
+#### Univariate Normality
+```{r, echo = FALSE}
+# Univariate QQ
+par(mfrow = c(2,3))
+qqnorm(log.econ.res, main = "Econ QQ-Plot(Log Tranform)")
+qqline(log.econ.res, col = "red")
+
+qqnorm(log.pol.res, main = "Pol QQ-Plot(Log Tranform)")
+qqline(log.pol.res, col = "red")
+
+qqnorm(log.health.res, main = "Health QQ-Plot(Log Tranform)")
+qqline(log.health.res, col = "red")
+
+qqnorm(log.edu.res, main = "Edu QQ-Plot(Log Tranform)")
+qqline(log.edu.res, col = "red")
+
+qqnorm(log.tech.res, main = "Tech QQ-Plot(Log Tranform)")
+qqline(log.tech.res, col = "red")
+```
+
+```{r, echo = FALSE}
+#Multi Q-Q
+par(mfrow = c(2,3))
+mqqnorm(log.econ.res, main = "Multi-Normal Q-Q Econ(Log Transform)")
+mqqnorm(log.pol.res, main = "Multi-Normal Q-Q Pol(Log Transform)")
+mqqnorm(log.health.res, main = "Multi-Normal Q-Q Health(Log Transform)")
+mqqnorm(log.edu.res, main = "Multi-Normal Q-Q Edu(Log Transform)")
+mqqnorm(log.tech.res, main = "Multi-Normal Q-Q Tech(Log Transform)")
+```
+
+```{r, echo = FALSE}
+mshapiro.test( t(log.econ.res[-c(2000,2014)] ))
+mshapiro.test( t(log.pol.res[-c(2000,2021)] ))
+mshapiro.test( t(log.health.res[-c(2019,2021)] ))
+mshapiro.test( t(log.edu.res[-c(2012,2021)] ))
+mshapiro.test( t(log.tech.res[-c(2019,2009)] ))
+```
+
+## Model Performance BIC
+
+The BIC values of the five models are shown in **Table.** The model with the lowest BIC, and therefore the strongest fitness is the health model.
+
+```{r, echo = FALSE}
+bic.values <- data.frame(c(-GA.econ@fitnessValue, -GA.pol@fitnessValue, 
+                           -GA.health@fitnessValue, -GA.edu@fitnessValue, 
+                           -GA.tech@fitnessValue), 
+                         row.names = c("Economic Model", "Political Model", 
+                                       "Health Model", "Education Model", 
+                                       "Technology Model"))
+kable(bic.values, caption = "Model Fitness Values (BIC)" , col.names = "BIC Values", format = "latex")
+```
+
+# Conclusions and Discussion
+
+The Genetic Algorithm is an adequate approach for variable selection in both multivariate and multiple regression, as it optimizes model fitness, while considering a population of all models. Although ideal for model selection, there are several drawbacks to this approach. When applied to a data set with volatile conditions, the genetic algorithm may not provide a solution to model assumptions. For example, multi-collinearity can grow in the Genetic Algorithm process if highly-correlated variables are not removed at the start of the analysis. This is is because fitness values, such as AIC, BIC, and $R^2$ can increase with collinearity and correlated residuals. It is important to note that, because of these drawbacks and the many violations to the regression models, the final models are not reliable. Because of this, these conclusions are made with extreme caution.\
+
+The significance of the predictors and details of models are noted in previous sections of the paper. As mentioned before, the raw results of the multiple regression analysis are shown in the appendix section. According to both the BIC values and the accuracy of the predictions, the health model seemed to significantly outperform the remaining 4.\
+
+Multivariate regression is a great approach when wanting to learn information about several response variables simultaneously. In Multivariate Regression, Comparisons, predictions, and inferences can be made using **1 model.** This is important when working with large data and real-life as less relationships can be neglected with this approach.\
+
+Although, many assumptions are not met and information is limited in the final models, this is a great start to a deep-dive into political applications of statistics in Kenya. These models can be used to paint a picture of the female experience in Kenya and across the world. In the future, it might be best to consider another approach, since regression analysis is more limiting and sensitive. There are many conditions to be accounted for that are not met by this analysis. Perhaps a more Bayesian would be acceptable.\ 
+
+# Appendix
+
+## Summary of Multiple Regression Prior to Genetic Algorithm
+
+```{r, echo = FALSE}
+summary(econ.m)
+summary(pol.m)
+summary(health.m)
+summary(edu.m)
+summary(tech.m)
+```
+
+## Summary of Multiple Regression after Genetic Algorithm Subset
+
+```{r, echo = FALSE}
+summary(econ.ga)
+summary(pol.ga)
+summary(health.ga)
+summary(edu.ga)
+summary(tech.ga)
+```
+
+```{r, echo = FALSE}
+both_model <- step(econ.m, direction = "both", trace = 0)
+```
